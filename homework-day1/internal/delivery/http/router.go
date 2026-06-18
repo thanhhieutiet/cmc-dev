@@ -1,35 +1,60 @@
 package http
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// NewRouter tạo chi router và đăng ký tất cả các routes
-func NewRouter(assetHandler *AssetHandler, healthHandler *HealthHandler) *chi.Mux {
+// CORSMiddleware xử lý chia sẻ tài nguyên nguồn gốc chéo (CORS) cho phép frontend gọi API
+func CORSMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func NewRouter(assetHandler *AssetHandler, scanHandler *ScanHandler, healthHandler *HealthHandler) *chi.Mux {
 	r := chi.NewRouter()
 
-	// Middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(CORSMiddleware)
 	r.Use(middleware.SetHeader("Content-Type", "application/json"))
 
-	// Health check (Bài 5)
 	r.Get("/health", healthHandler.HealthCheck)
 
-	// Asset routes
 	r.Route("/assets", func(r chi.Router) {
-		// Các route cụ thể phải đặt TRƯỚC route có param {id}
-		r.Get("/stats", assetHandler.GetStats)       // Bài 1.1
-		r.Get("/count", assetHandler.CountAssets)     // Bài 1.2
-		r.Get("/search", assetHandler.SearchAssets)   // Bài 7 - Bonus
-		r.Post("/batch", assetHandler.BatchCreate)    // Bài 2
-		r.Delete("/batch", assetHandler.BatchDelete)  // Bài 3
+		r.Get("/stats", assetHandler.GetStats)
+		r.Get("/count", assetHandler.CountAssets)
+		r.Get("/search", assetHandler.SearchAssets)
+		r.Post("/batch", assetHandler.BatchCreate)
+		r.Delete("/batch", assetHandler.BatchDelete)
+		r.Get("/", assetHandler.ListAssets)
+		r.Post("/", assetHandler.CreateAsset)
+		r.Get("/{id}", assetHandler.GetAssetByID)
 
-		// CRUD cơ bản
-		r.Get("/", assetHandler.ListAssets)           // Bài 6 - Bonus
-		r.Post("/", assetHandler.CreateAsset)         // Tạo 1 asset
-		r.Get("/{id}", assetHandler.GetAssetByID)     // Lấy asset theo ID
+		// Scan routes
+		r.Post("/{id}/scan", scanHandler.StartScan)
+		r.Get("/{id}/scans", scanHandler.ListScanJobs)
+		r.Get("/{id}/results", scanHandler.GetAssetAllResults)
+		r.Get("/{id}/dns", scanHandler.GetAssetDNS)
+		r.Get("/{id}/whois", scanHandler.GetAssetWHOIS)
+		r.Get("/{id}/subdomains", scanHandler.GetAssetSubdomains)
+	})
+
+	r.Route("/scan-jobs", func(r chi.Router) {
+		r.Get("/{id}", scanHandler.GetScanJob)
+		r.Get("/{id}/results", scanHandler.GetScanResults)
 	})
 
 	return r

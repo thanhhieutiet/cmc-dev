@@ -15,6 +15,7 @@ type Asset struct {
 	Type      string    `json:"type"`       // domain, ip, service
 	Status    string    `json:"status"`     // active, inactive
 	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // --- Domain Errors ---

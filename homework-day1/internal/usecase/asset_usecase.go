@@ -22,12 +22,14 @@ func NewAssetUsecase(repo domain.AssetRepository) domain.AssetUsecase {
 
 // CreateAsset tạo một asset mới
 func (uc *assetUsecase) CreateAsset(ctx context.Context, req *domain.CreateAssetRequest) (*domain.Asset, error) {
+	now := time.Now()
 	asset := &domain.Asset{
 		ID:        uuid.New().String(),
 		Name:      req.Name,
 		Type:      req.Type,
 		Status:    req.Status,
-		CreatedAt: time.Now(),
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 
 	// Gán status mặc định nếu không truyền
@@ -67,12 +69,14 @@ func (uc *assetUsecase) BatchCreateAssets(ctx context.Context, req *domain.Batch
 	// Bước 1: Validate TOÀN BỘ trước (All or Nothing)
 	assets := make([]*domain.Asset, 0, len(req.Assets))
 	for _, item := range req.Assets {
+		now := time.Now()
 		asset := &domain.Asset{
 			ID:        uuid.New().String(),
 			Name:      item.Name,
 			Type:      item.Type,
 			Status:    item.Status,
-			CreatedAt: time.Now(),
+			CreatedAt: now,
+			UpdatedAt: now,
 		}
 
 		if asset.Status == "" {
