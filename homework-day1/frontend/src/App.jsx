@@ -217,8 +217,8 @@ export default function App() {
   const handleDeleteAsset = async (id) => {
     if (confirm("Are you sure you want to delete this asset?")) {
       try {
-        // We delete by calling batch delete API with a single ID
-        await axios.delete(`${API_BASE}/assets/batch`, { data: { ids: [id] } });
+        // The backend expects ids passed as query parameters (split by comma)
+        await axios.delete(`${API_BASE}/assets/batch?ids=${id}`);
         fetchStats();
         fetchAssets();
       } catch (err) {
@@ -913,9 +913,32 @@ export default function App() {
                       {assets.map((asset) => (
                         <tr key={asset.id}>
                           <td style={{ fontWeight: 600 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              {getAssetIcon(asset.type)}
-                              {asset.name}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                {getAssetIcon(asset.type)}
+                                <span>{asset.name}</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 400 }}>
+                                <span>id: {asset.id}</span>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(asset.id);
+                                  }}
+                                  title="Copy ID"
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--text-tertiary)',
+                                    cursor: 'pointer',
+                                    padding: '2px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center'
+                                  }}
+                                >
+                                  <Layers size={10} />
+                                </button>
+                              </div>
                             </div>
                           </td>
                           <td>
