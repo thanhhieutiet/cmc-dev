@@ -1,4 +1,4 @@
-package http
+package handler
 
 import (
 	"net/http"
@@ -23,7 +23,7 @@ func CORSMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func NewRouter(assetHandler *AssetHandler, scanHandler *ScanHandler, healthHandler *HealthHandler) *chi.Mux {
+func NewRouter(assetHandler *AssetHandler, scanHandler *ScanHandler, healthHandler *HealthHandler, alertHandler *AlertHandler) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -42,6 +42,7 @@ func NewRouter(assetHandler *AssetHandler, scanHandler *ScanHandler, healthHandl
 		r.Get("/", assetHandler.ListAssets)
 		r.Post("/", assetHandler.CreateAsset)
 		r.Get("/{id}", assetHandler.GetAssetByID)
+		r.Put("/{id}/auto-scan", assetHandler.ToggleAutoScan)
 
 		// Scan routes
 		r.Post("/{id}/scan", scanHandler.StartScan)
@@ -52,9 +53,19 @@ func NewRouter(assetHandler *AssetHandler, scanHandler *ScanHandler, healthHandl
 		r.Get("/{id}/subdomains", scanHandler.GetAssetSubdomains)
 	})
 
+	// --- Scan Jobs Operations ---
 	r.Route("/scan-jobs", func(r chi.Router) {
+		r.Get("/", scanHandler.ListAllScanJobs)
 		r.Get("/{id}", scanHandler.GetScanJob)
 		r.Get("/{id}/results", scanHandler.GetScanResults)
+	})
+
+	// --- Alerts Operations ---
+	r.Route("/alerts", func(r chi.Router) {
+		r.Get("/", alertHandler.ListAllAlerts)
+		r.Get("/unread", alertHandler.GetUnreadAlerts)
+		r.Put("/read", alertHandler.MarkAllAsRead)
+		r.Put("/{id}/read", alertHandler.MarkAsRead)
 	})
 
 	return r

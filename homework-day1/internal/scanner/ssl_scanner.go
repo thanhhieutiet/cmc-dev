@@ -7,7 +7,7 @@ import (
 	"net"
 	"time"
 
-	"homework-day1/internal/domain"
+	"homework-day1/internal/model"
 )
 
 type SSLScanner struct{}
@@ -16,9 +16,9 @@ func NewSSLScanner() *SSLScanner {
 	return &SSLScanner{}
 }
 
-func (s *SSLScanner) Scan(asset *domain.Asset) (*domain.SSLScanResult, error) {
+func (s *SSLScanner) Scan(asset *model.Asset) (*model.SSLScanResult, error) {
 	if asset.Type != "domain" {
-		return nil, domain.ErrScanNotSupported
+		return nil, model.ErrScanNotSupported
 	}
 
 	domainName := asset.Name
@@ -65,7 +65,7 @@ func (s *SSLScanner) Scan(asset *domain.Asset) (*domain.SSLScanResult, error) {
 	tlsVer := getTLSVersionString(state.Version)
 	cipherName := tls.CipherSuiteName(state.CipherSuite)
 
-	certInfo := &domain.CertInfo{
+	certInfo := &model.CertInfo{
 		Subject:         mainCert.Subject.String(),
 		Issuer:          mainCert.Issuer.String(),
 		SerialNumber:    mainCert.SerialNumber.String(),
@@ -77,13 +77,13 @@ func (s *SSLScanner) Scan(asset *domain.Asset) (*domain.SSLScanResult, error) {
 		SAN:             mainCert.DNSNames,
 	}
 
-	connInfo := &domain.ConnectionInfo{
+	connInfo := &model.ConnectionInfo{
 		TLSVersion:  tlsVer,
 		CipherSuite: cipherName,
 		KeyExchange: "",
 	}
 
-	return &domain.SSLScanResult{
+	return &model.SSLScanResult{
 		Domain:      domainName,
 		Certificate: certInfo,
 		Connection:  connInfo,

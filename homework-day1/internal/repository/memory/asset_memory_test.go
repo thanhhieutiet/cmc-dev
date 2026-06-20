@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"homework-day1/internal/domain"
+	"homework-day1/internal/model"
 )
 
 // TestConcurrentCreate kiểm tra race condition khi tạo asset đồng thời (Bài 4)
@@ -22,7 +22,7 @@ func TestConcurrentCreate(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func(n int) {
 			defer wg.Done()
-			asset := &domain.Asset{
+			asset := &model.Asset{
 				ID:        fmt.Sprintf("id-%d", n),
 				Name:      fmt.Sprintf("concurrent-%d.com", n),
 				Type:      "domain",
@@ -55,7 +55,7 @@ func TestConcurrentBatchCreateAndStats(t *testing.T) {
 
 		go func(n int) {
 			defer wg.Done()
-			assets := []*domain.Asset{
+			assets := []*model.Asset{
 				{ID: fmt.Sprintf("batch-%d-1", n), Name: fmt.Sprintf("batch-%d-1.com", n), Type: "domain", Status: "active", CreatedAt: time.Now()},
 				{ID: fmt.Sprintf("batch-%d-2", n), Name: fmt.Sprintf("batch-%d-2.com", n), Type: "ip", Status: "inactive", CreatedAt: time.Now()},
 			}

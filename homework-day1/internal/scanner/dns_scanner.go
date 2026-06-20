@@ -3,7 +3,7 @@ package scanner
 import (
 	"net"
 
-	"homework-day1/internal/domain"
+	"homework-day1/internal/model"
 )
 
 type DNSScanner struct{}
@@ -12,17 +12,17 @@ func NewDNSScanner() *DNSScanner {
 	return &DNSScanner{}
 }
 
-func (s *DNSScanner) Scan(asset *domain.Asset) ([]*domain.DNSRecord, error) {
+func (s *DNSScanner) Scan(asset *model.Asset) ([]*model.DNSRecord, error) {
 	if asset.Type != "domain" {
-		return nil, domain.ErrScanNotSupported
+		return nil, model.ErrScanNotSupported
 	}
 
-	var records []*domain.DNSRecord
+	var records []*model.DNSRecord
 	domainName := asset.Name
 
 	// CNAME Lookup
 	if cname, err := net.LookupCNAME(domainName); err == nil && cname != "" && cname != domainName+"." {
-		records = append(records, &domain.DNSRecord{
+		records = append(records, &model.DNSRecord{
 			RecordType: "CNAME",
 			Name:       domainName,
 			Value:      cname,
@@ -32,7 +32,7 @@ func (s *DNSScanner) Scan(asset *domain.Asset) ([]*domain.DNSRecord, error) {
 	// A records Lookup
 	if ips, err := net.LookupHost(domainName); err == nil {
 		for _, ip := range ips {
-			records = append(records, &domain.DNSRecord{
+			records = append(records, &model.DNSRecord{
 				RecordType: "A",
 				Name:       domainName,
 				Value:      ip,
@@ -43,7 +43,7 @@ func (s *DNSScanner) Scan(asset *domain.Asset) ([]*domain.DNSRecord, error) {
 	// MX records Lookup
 	if mxs, err := net.LookupMX(domainName); err == nil {
 		for _, mx := range mxs {
-			records = append(records, &domain.DNSRecord{
+			records = append(records, &model.DNSRecord{
 				RecordType: "MX",
 				Name:       domainName,
 				Value:      mx.Host,
@@ -55,7 +55,7 @@ func (s *DNSScanner) Scan(asset *domain.Asset) ([]*domain.DNSRecord, error) {
 	// NS records Lookup
 	if nss, err := net.LookupNS(domainName); err == nil {
 		for _, ns := range nss {
-			records = append(records, &domain.DNSRecord{
+			records = append(records, &model.DNSRecord{
 				RecordType: "NS",
 				Name:       domainName,
 				Value:      ns.Host,
@@ -66,7 +66,7 @@ func (s *DNSScanner) Scan(asset *domain.Asset) ([]*domain.DNSRecord, error) {
 	// TXT records Lookup
 	if txts, err := net.LookupTXT(domainName); err == nil {
 		for _, txt := range txts {
-			records = append(records, &domain.DNSRecord{
+			records = append(records, &model.DNSRecord{
 				RecordType: "TXT",
 				Name:       domainName,
 				Value:      txt,

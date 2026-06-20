@@ -1,4 +1,4 @@
-package domain
+package model
 
 import (
 	"context"
@@ -61,6 +61,13 @@ type ScanJob struct {
 	Error     string     `json:"error"`
 	Results   int        `json:"results"`
 	CreatedAt time.Time  `json:"created_at"`
+}
+
+// ScanJobDetail chứa chi tiết của scan job kèm thông tin asset liên quan
+type ScanJobDetail struct {
+	ScanJob
+	AssetName string `json:"asset_name,omitempty"`
+	AssetType string `json:"asset_type,omitempty"`
 }
 
 // Subdomain đại diện cho subdomain phát hiện được
@@ -246,6 +253,7 @@ type ScanRepository interface {
 	GetScanJob(ctx context.Context, id string) (*ScanJob, error)
 	UpdateScanJob(ctx context.Context, job *ScanJob) error
 	ListScanJobsByAsset(ctx context.Context, assetID string) ([]*ScanJob, error)
+	ListAllScanJobs(ctx context.Context, page, limit int, scanType, status, assetQuery string) ([]*ScanJobDetail, int, error)
 
 	// DNS Record operations
 	CreateDNSRecord(ctx context.Context, record *DNSRecord) error
@@ -268,12 +276,13 @@ type ScanRepository interface {
 	GetScanResultsByAsset(ctx context.Context, assetID string, scanType ScanType) ([]*ScanResult, error)
 }
 
-// ScanUsecase định nghĩa interface cho lớp logic nghiệp vụ scan
-type ScanUsecase interface {
+// ScanService định nghĩa interface cho lớp logic nghiệp vụ scan
+type ScanService interface {
 	StartScan(ctx context.Context, assetID string, scanType ScanType) (*ScanJob, error)
 	GetScanJob(ctx context.Context, jobID string) (*ScanJob, error)
 	GetScanResults(ctx context.Context, jobID string) (*ScanResultsResponse, error)
 	ListScanJobs(ctx context.Context, assetID string) ([]*ScanJob, error)
+	ListAllScanJobs(ctx context.Context, page, limit int, scanType, status, assetQuery string) ([]*ScanJobDetail, int, error)
 	GetAssetAllResults(ctx context.Context, assetID string) (map[string]interface{}, error)
 	GetAssetDNSRecords(ctx context.Context, assetID string) ([]*DNSRecord, error)
 	GetAssetWHOIS(ctx context.Context, assetID string) (*WHOISRecord, error)

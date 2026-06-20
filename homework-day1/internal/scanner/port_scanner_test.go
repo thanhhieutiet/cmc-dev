@@ -3,25 +3,25 @@ package scanner
 import (
 	"testing"
 
-	"homework-day1/internal/domain"
+	"homework-day1/internal/model"
 )
 
 func TestPortScanner_Scan_Unauthorized(t *testing.T) {
 	scanner := NewPortScanner()
-	asset := &domain.Asset{
+	asset := &model.Asset{
 		Name: "8.8.8.8",
 		Type: "ip",
 	}
 
 	_, err := scanner.Scan(asset)
-	if err != domain.ErrPortScanUnauthorized {
+	if err != model.ErrPortScanUnauthorized {
 		t.Errorf("expected ErrPortScanUnauthorized, got %v", err)
 	}
 }
 
 func TestPortScanner_Scan_Localhost(t *testing.T) {
 	scanner := NewPortScanner()
-	asset := &domain.Asset{
+	asset := &model.Asset{
 		Name: "127.0.0.1",
 		Type: "ip",
 	}
@@ -42,13 +42,13 @@ func TestPortScanner_Scan_Localhost(t *testing.T) {
 
 func TestPortScanner_Scan_Validation(t *testing.T) {
 	scanner := NewPortScanner()
-	asset := &domain.Asset{
+	asset := &model.Asset{
 		Name: "example.com",
 		Type: "domain",
 	}
 
 	_, err := scanner.Scan(asset)
-	if err != domain.ErrScanNotSupported {
+	if err != model.ErrScanNotSupported {
 		t.Errorf("expected ErrScanNotSupported, got %v", err)
 	}
 }

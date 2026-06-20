@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"homework-day1/internal/domain"
+	"homework-day1/internal/model"
 )
 
 type WHOISScanner struct{}
@@ -18,9 +18,9 @@ func NewWHOISScanner() *WHOISScanner {
 	return &WHOISScanner{}
 }
 
-func (s *WHOISScanner) Scan(asset *domain.Asset) (*domain.WHOISRecord, error) {
+func (s *WHOISScanner) Scan(asset *model.Asset) (*model.WHOISRecord, error) {
 	if asset.Type != "domain" {
-		return nil, domain.ErrScanNotSupported
+		return nil, model.ErrScanNotSupported
 	}
 
 	domainName := asset.Name
@@ -29,7 +29,7 @@ func (s *WHOISScanner) Scan(asset *domain.Asset) (*domain.WHOISRecord, error) {
 		rawWHOIS = fmt.Sprintf("WHOIS Query failed: %v", err)
 	}
 
-	record := &domain.WHOISRecord{
+	record := &model.WHOISRecord{
 		RawData: rawWHOIS,
 	}
 

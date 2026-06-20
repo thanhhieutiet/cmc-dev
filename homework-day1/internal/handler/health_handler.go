@@ -1,20 +1,20 @@
-package http
+package handler
 
 import (
 	"net/http"
 	"time"
 
-	"homework-day1/internal/domain"
+	"homework-day1/internal/model"
 )
 
 // HealthHandler chứa handler cho health check endpoint (Bài 5)
 type HealthHandler struct {
-	usecase   domain.AssetUsecase
+	usecase   model.AssetService
 	startTime time.Time
 }
 
 // NewHealthHandler tạo instance mới của HealthHandler
-func NewHealthHandler(uc domain.AssetUsecase, startTime time.Time) *HealthHandler {
+func NewHealthHandler(uc model.AssetService, startTime time.Time) *HealthHandler {
 	return &HealthHandler{
 		usecase:   uc,
 		startTime: startTime,
@@ -25,10 +25,15 @@ func NewHealthHandler(uc domain.AssetUsecase, startTime time.Time) *HealthHandle
 func (h *HealthHandler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	uptime := time.Since(h.startTime).Seconds()
 
-	response := domain.HealthResponse{
+	storageType := "in-memory"
+	if st, ok := h.usecase.(interface{ GetStorageType() string }); ok {
+		storageType = st.GetStorageType()
+	}
+
+	response := model.HealthResponse{
 		Status: "ok",
-		Storage: domain.StorageHealth{
-			Type:       "in-memory",
+		Storage: model.StorageHealth{
+			Type:       storageType,
 			AssetCount: h.usecase.GetAssetCount(),
 		},
 		Uptime:    uptime,

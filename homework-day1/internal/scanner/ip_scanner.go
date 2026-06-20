@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"homework-day1/internal/domain"
+	"homework-day1/internal/model"
 )
 
 type IPScanner struct {
@@ -39,9 +39,9 @@ type ipApiResponse struct {
 	Reverse     string  `json:"reverse"`
 }
 
-func (s *IPScanner) Scan(asset *domain.Asset) (*domain.IPScanResult, error) {
+func (s *IPScanner) Scan(asset *model.Asset) (*model.IPScanResult, error) {
 	if asset.Type != "ip" {
-		return nil, domain.ErrScanNotSupported
+		return nil, model.ErrScanNotSupported
 	}
 
 	ipStr := asset.Name
@@ -58,11 +58,11 @@ func (s *IPScanner) Scan(asset *domain.Asset) (*domain.IPScanResult, error) {
 		isPrivate = true
 	}
 
-	var geo *domain.GeoLocation
-	var asn *domain.ASNInfo
+	var geo *model.GeoLocation
+	var asn *model.ASNInfo
 
 	if isPrivate {
-		geo = &domain.GeoLocation{
+		geo = &model.GeoLocation{
 			Country:     "Local Network",
 			CountryCode: "LCL",
 			City:        "Localhost",
@@ -72,7 +72,7 @@ func (s *IPScanner) Scan(asset *domain.Asset) (*domain.IPScanResult, error) {
 			ISP:         "Private Network Address Space",
 			Org:         "RFC 1918 / Loopback",
 		}
-		asn = &domain.ASNInfo{
+		asn = &model.ASNInfo{
 			Number:      0,
 			Name:        "AS0",
 			Description: "Reserved Private ASN",
@@ -80,7 +80,7 @@ func (s *IPScanner) Scan(asset *domain.Asset) (*domain.IPScanResult, error) {
 	} else {
 		resp, err := s.client.Get(fmt.Sprintf("http://ip-api.com/json/%s?fields=status,message,country,countryCode,regionName,city,lat,lon,isp,org,as,asname,reverse", ipStr))
 		if err != nil {
-			geo = &domain.GeoLocation{
+			geo = &model.GeoLocation{
 				Country:     "Offline Fallback",
 				CountryCode: "OFF",
 				City:        "Internet",
@@ -88,7 +88,7 @@ func (s *IPScanner) Scan(asset *domain.Asset) (*domain.IPScanResult, error) {
 				ISP:         "Unknown ISP (Offline)",
 				Org:         "Offline",
 			}
-			asn = &domain.ASNInfo{
+			asn = &model.ASNInfo{
 				Number:      99999,
 				Name:        "AS99999",
 				Description: "Offline Fallback ASN",
@@ -97,7 +97,7 @@ func (s *IPScanner) Scan(asset *domain.Asset) (*domain.IPScanResult, error) {
 			defer resp.Body.Close()
 			var apiRes ipApiResponse
 			if err := json.NewDecoder(resp.Body).Decode(&apiRes); err != nil || apiRes.Status != "success" {
-				geo = &domain.GeoLocation{
+				geo = &model.GeoLocation{
 					Country:     "API Limit/Error Fallback",
 					CountryCode: "ERR",
 					City:        "Unknown",
@@ -105,13 +105,13 @@ func (s *IPScanner) Scan(asset *domain.Asset) (*domain.IPScanResult, error) {
 					ISP:         "API Response: " + apiRes.Message,
 					Org:         "Fallback",
 				}
-				asn = &domain.ASNInfo{
+				asn = &model.ASNInfo{
 					Number:      0,
 					Name:        "AS0",
 					Description: "Fallback Description",
 				}
 			} else {
-				geo = &domain.GeoLocation{
+				geo = &model.GeoLocation{
 					Country:     apiRes.Country,
 					CountryCode: apiRes.CountryCode,
 					City:        apiRes.City,
@@ -128,7 +128,7 @@ func (s *IPScanner) Scan(asset *domain.Asset) (*domain.IPScanResult, error) {
 				if apiRes.As != "" {
 					fmt.Sscanf(apiRes.As, "AS%d", &asNum)
 				}
-				asn = &domain.ASNInfo{
+				asn = &model.ASNInfo{
 					Number:      asNum,
 					Name:        asName,
 					Description: asDesc,
@@ -140,7 +140,7 @@ func (s *IPScanner) Scan(asset *domain.Asset) (*domain.IPScanResult, error) {
 		}
 	}
 
-	return &domain.IPScanResult{
+	return &model.IPScanResult{
 		IPAddress:   ipStr,
 		Geolocation: geo,
 		ASN:         asn,

@@ -6,7 +6,7 @@ import (
 	"net"
 	"sync"
 
-	"homework-day1/internal/domain"
+	"homework-day1/internal/model"
 )
 
 type SubdomainScanner struct {
@@ -23,13 +23,13 @@ func NewSubdomainScanner() *SubdomainScanner {
 	}
 }
 
-func (s *SubdomainScanner) Scan(asset *domain.Asset, ctx context.Context) ([]*domain.Subdomain, error) {
+func (s *SubdomainScanner) Scan(asset *model.Asset, ctx context.Context) ([]*model.Subdomain, error) {
 	if asset.Type != "domain" {
-		return nil, domain.ErrScanNotSupported
+		return nil, model.ErrScanNotSupported
 	}
 
 	domainName := asset.Name
-	var subdomains []*domain.Subdomain
+	var subdomains []*model.Subdomain
 	var mu sync.Mutex
 
 	sem := make(chan struct{}, 10)
@@ -53,7 +53,7 @@ func (s *SubdomainScanner) Scan(asset *domain.Asset, ctx context.Context) ([]*do
 			ips, err := net.LookupHost(subdomainName)
 			if err == nil && len(ips) > 0 {
 				mu.Lock()
-				subdomains = append(subdomains, &domain.Subdomain{
+				subdomains = append(subdomains, &model.Subdomain{
 					Name:     subdomainName,
 					Source:   "dns_bruteforce",
 					IsActive: true,

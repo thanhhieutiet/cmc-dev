@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"homework-day1/internal/domain"
+	"homework-day1/internal/model"
 )
 
 type PortScanner struct{}
@@ -71,19 +71,19 @@ func getWellKnownService(port int) string {
 	}
 }
 
-func (s *PortScanner) Scan(asset *domain.Asset) (*domain.PortScanResult, error) {
+func (s *PortScanner) Scan(asset *model.Asset) (*model.PortScanResult, error) {
 	if asset.Type != "ip" {
-		return nil, domain.ErrScanNotSupported
+		return nil, model.ErrScanNotSupported
 	}
 
 	ipStr := asset.Name
 	if !isPrivateIP(ipStr) {
-		return nil, domain.ErrPortScanUnauthorized
+		return nil, model.ErrPortScanUnauthorized
 	}
 
 	ports := []int{21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 3306, 3389, 5432, 8080, 8443}
 
-	var openPorts []domain.PortInfo
+	var openPorts []model.PortInfo
 	var mu sync.Mutex
 
 	sem := make(chan struct{}, 10)
@@ -119,7 +119,7 @@ func (s *PortScanner) Scan(asset *domain.Asset) (*domain.PortScanResult, error) 
 				}
 
 				mu.Lock()
-				openPorts = append(openPorts, domain.PortInfo{
+				openPorts = append(openPorts, model.PortInfo{
 					Port:     p,
 					Protocol: "tcp",
 					State:    "open",
@@ -136,7 +136,7 @@ func (s *PortScanner) Scan(asset *domain.Asset) (*domain.PortScanResult, error) 
 	duration := time.Since(startTime).Milliseconds()
 	closedPorts := len(ports) - len(openPorts)
 
-	return &domain.PortScanResult{
+	return &model.PortScanResult{
 		IPAddress:      ipStr,
 		OpenPorts:      openPorts,
 		ClosedPorts:    closedPorts,

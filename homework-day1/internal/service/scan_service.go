@@ -1,4 +1,4 @@
-package usecase
+package service
 
 import (
 	"context"
@@ -10,13 +10,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"homework-day1/internal/domain"
+	"homework-day1/internal/model"
 	"homework-day1/internal/scanner"
 )
 
-type scanUsecase struct {
-	assetRepo        domain.AssetRepository
-	scanRepo         domain.ScanRepository
+type scanService struct {
+	assetRepo        model.AssetRepository
+	scanRepo         model.ScanRepository
+	alertRepo        model.AlertRepository
 	dnsScanner       *scanner.DNSScanner
 	whoisScanner     *scanner.WHOISScanner
 	subdomainScanner *scanner.SubdomainScanner
@@ -26,10 +27,11 @@ type scanUsecase struct {
 	techScanner      *scanner.TechScanner
 }
 
-func NewScanUsecase(assetRepo domain.AssetRepository, scanRepo domain.ScanRepository) domain.ScanUsecase {
-	return &scanUsecase{
+func NewScanService(assetRepo model.AssetRepository, scanRepo model.ScanRepository, alertRepo model.AlertRepository) model.ScanService {
+	return &scanService{
 		assetRepo:        assetRepo,
 		scanRepo:         scanRepo,
+		alertRepo:        alertRepo,
 		dnsScanner:       scanner.NewDNSScanner(),
 		whoisScanner:     scanner.NewWHOISScanner(),
 		subdomainScanner: scanner.NewSubdomainScanner(),
@@ -40,35 +42,35 @@ func NewScanUsecase(assetRepo domain.AssetRepository, scanRepo domain.ScanReposi
 	}
 }
 
-func (u *scanUsecase) StartScan(ctx context.Context, assetID string, scanType domain.ScanType) (*domain.ScanJob, error) {
+func (u *scanService) StartScan(ctx context.Context, assetID string, scanType model.ScanType) (*model.ScanJob, error) {
 	asset, err := u.assetRepo.GetByID(ctx, assetID)
 	if err != nil {
 		return nil, err
 	}
 
-	if !domain.IsValidScanType(scanType) {
-		return nil, domain.ErrInvalidScanType
+	if !model.IsValidScanType(scanType) {
+		return nil, model.ErrInvalidScanType
 	}
 
 	// Validate compatibility between scan type and asset type
 	if asset.Type == "domain" {
-		if scanType == domain.ScanTypeIP || scanType == domain.ScanTypePort {
-			return nil, domain.ErrScanNotSupported
+		if scanType == model.ScanTypeIP || scanType == model.ScanTypePort {
+			return nil, model.ErrScanNotSupported
 		}
 	} else if asset.Type == "ip" {
-		if scanType == domain.ScanTypeDNS || scanType == domain.ScanTypeWHOIS || scanType == domain.ScanTypeSubdomain || scanType == domain.ScanTypeSSL || scanType == domain.ScanTypeTech {
-			return nil, domain.ErrScanNotSupported
+		if scanType == model.ScanTypeDNS || scanType == model.ScanTypeWHOIS || scanType == model.ScanTypeSubdomain || scanType == model.ScanTypeSSL || scanType == model.ScanTypeTech {
+			return nil, model.ErrScanNotSupported
 		}
 	} else {
-		return nil, domain.ErrScanNotSupported
+		return nil, model.ErrScanNotSupported
 	}
 
 	jobID := uuid.New().String()
-	job := &domain.ScanJob{
+	job := &model.ScanJob{
 		ID:        jobID,
 		AssetID:   asset.ID,
 		ScanType:  scanType,
-		Status:    domain.ScanStatusPending,
+		Status:    model.ScanStatusPending,
 		StartedAt: time.Now(),
 		CreatedAt: time.Now(),
 	}
@@ -83,11 +85,11 @@ func (u *scanUsecase) StartScan(ctx context.Context, assetID string, scanType do
 	return job, nil
 }
 
-func (u *scanUsecase) GetScanJob(ctx context.Context, jobID string) (*domain.ScanJob, error) {
+func (u *scanService) GetScanJob(ctx context.Context, jobID string) (*model.ScanJob, error) {
 	return u.scanRepo.GetScanJob(ctx, jobID)
 }
 
-func (u *scanUsecase) GetScanResults(ctx context.Context, jobID string) (*domain.ScanResultsResponse, error) {
+func (u *scanService) GetScanResults(ctx context.Context, jobID string) (*model.ScanResultsResponse, error) {
 	job, err := u.scanRepo.GetScanJob(ctx, jobID)
 	if err != nil {
 		return nil, err
@@ -96,13 +98,13 @@ func (u *scanUsecase) GetScanResults(ctx context.Context, jobID string) (*domain
 	var results interface{}
 
 	switch job.ScanType {
-	case domain.ScanTypeDNS:
+	case model.ScanTypeDNS:
 		recs, err := u.scanRepo.GetDNSRecordsByScan(ctx, jobID)
 		if err != nil {
 			return nil, err
 		}
 		results = recs
-	case domain.ScanTypeWHOIS:
+	case model.ScanTypeWHOIS:
 		recs, err := u.scanRepo.GetWHOISRecordsByScan(ctx, jobID)
 		if err != nil {
 			return nil, err
@@ -112,61 +114,61 @@ func (u *scanUsecase) GetScanResults(ctx context.Context, jobID string) (*domain
 		} else {
 			results = nil
 		}
-	case domain.ScanTypeSubdomain:
+	case model.ScanTypeSubdomain:
 		subs, err := u.scanRepo.GetSubdomainsByScan(ctx, jobID)
 		if err != nil {
 			return nil, err
 		}
 		results = subs
-	case domain.ScanTypeIP:
+	case model.ScanTypeIP:
 		resList, err := u.scanRepo.GetScanResultsByScan(ctx, jobID)
 		if err != nil {
 			return nil, err
 		}
 		if len(resList) > 0 {
-			var ipRes domain.IPScanResult
+			var ipRes model.IPScanResult
 			if err := json.Unmarshal(resList[0].Data, &ipRes); err != nil {
 				return nil, err
 			}
 			results = ipRes
 		}
-	case domain.ScanTypePort:
+	case model.ScanTypePort:
 		resList, err := u.scanRepo.GetScanResultsByScan(ctx, jobID)
 		if err != nil {
 			return nil, err
 		}
 		if len(resList) > 0 {
-			var portRes domain.PortScanResult
+			var portRes model.PortScanResult
 			if err := json.Unmarshal(resList[0].Data, &portRes); err != nil {
 				return nil, err
 			}
 			results = portRes
 		}
-	case domain.ScanTypeSSL:
+	case model.ScanTypeSSL:
 		resList, err := u.scanRepo.GetScanResultsByScan(ctx, jobID)
 		if err != nil {
 			return nil, err
 		}
 		if len(resList) > 0 {
-			var sslRes domain.SSLScanResult
+			var sslRes model.SSLScanResult
 			if err := json.Unmarshal(resList[0].Data, &sslRes); err != nil {
 				return nil, err
 			}
 			results = sslRes
 		}
-	case domain.ScanTypeTech:
+	case model.ScanTypeTech:
 		resList, err := u.scanRepo.GetScanResultsByScan(ctx, jobID)
 		if err != nil {
 			return nil, err
 		}
 		if len(resList) > 0 {
-			var techRes domain.TechScanResult
+			var techRes model.TechScanResult
 			if err := json.Unmarshal(resList[0].Data, &techRes); err != nil {
 				return nil, err
 			}
 			results = techRes
 		}
-	case domain.ScanTypeAll:
+	case model.ScanTypeAll:
 		dnsRecs, _ := u.scanRepo.GetDNSRecordsByScan(ctx, jobID)
 		whoisRecs, _ := u.scanRepo.GetWHOISRecordsByScan(ctx, jobID)
 		subdomains, _ := u.scanRepo.GetSubdomainsByScan(ctx, jobID)
@@ -185,20 +187,20 @@ func (u *scanUsecase) GetScanResults(ctx context.Context, jobID string) (*domain
 		for _, res := range scanResList {
 			var unmarshaled interface{}
 			switch res.ScanType {
-			case domain.ScanTypeIP:
-				var ipRes domain.IPScanResult
+			case model.ScanTypeIP:
+				var ipRes model.IPScanResult
 				json.Unmarshal(res.Data, &ipRes)
 				unmarshaled = ipRes
-			case domain.ScanTypePort:
-				var portRes domain.PortScanResult
+			case model.ScanTypePort:
+				var portRes model.PortScanResult
 				json.Unmarshal(res.Data, &portRes)
 				unmarshaled = portRes
-			case domain.ScanTypeSSL:
-				var sslRes domain.SSLScanResult
+			case model.ScanTypeSSL:
+				var sslRes model.SSLScanResult
 				json.Unmarshal(res.Data, &sslRes)
 				unmarshaled = sslRes
-			case domain.ScanTypeTech:
-				var techRes domain.TechScanResult
+			case model.ScanTypeTech:
+				var techRes model.TechScanResult
 				json.Unmarshal(res.Data, &techRes)
 				unmarshaled = techRes
 			}
@@ -207,26 +209,30 @@ func (u *scanUsecase) GetScanResults(ctx context.Context, jobID string) (*domain
 		results = composite
 	}
 
-	return &domain.ScanResultsResponse{
+	return &model.ScanResultsResponse{
 		JobID:    jobID,
 		ScanType: job.ScanType,
 		Results:  results,
 	}, nil
 }
 
-func (u *scanUsecase) ListScanJobs(ctx context.Context, assetID string) ([]*domain.ScanJob, error) {
+func (u *scanService) ListScanJobs(ctx context.Context, assetID string) ([]*model.ScanJob, error) {
 	return u.scanRepo.ListScanJobsByAsset(ctx, assetID)
 }
 
-func (u *scanUsecase) GetAssetAllResults(ctx context.Context, assetID string) (map[string]interface{}, error) {
+func (u *scanService) ListAllScanJobs(ctx context.Context, page, limit int, scanType, status, assetQuery string) ([]*model.ScanJobDetail, int, error) {
+	return u.scanRepo.ListAllScanJobs(ctx, page, limit, scanType, status, assetQuery)
+}
+
+func (u *scanService) GetAssetAllResults(ctx context.Context, assetID string) (map[string]interface{}, error) {
 	dnsRecs, _ := u.scanRepo.GetDNSRecordsByAsset(ctx, assetID)
 	whoisRec, _ := u.scanRepo.GetWHOISRecordByAsset(ctx, assetID)
 	subdomains, _ := u.scanRepo.GetSubdomainsByAsset(ctx, assetID)
 
-	ipRes, _ := u.scanRepo.GetScanResultsByAsset(ctx, assetID, domain.ScanTypeIP)
-	portRes, _ := u.scanRepo.GetScanResultsByAsset(ctx, assetID, domain.ScanTypePort)
-	sslRes, _ := u.scanRepo.GetScanResultsByAsset(ctx, assetID, domain.ScanTypeSSL)
-	techRes, _ := u.scanRepo.GetScanResultsByAsset(ctx, assetID, domain.ScanTypeTech)
+	ipRes, _ := u.scanRepo.GetScanResultsByAsset(ctx, assetID, model.ScanTypeIP)
+	portRes, _ := u.scanRepo.GetScanResultsByAsset(ctx, assetID, model.ScanTypePort)
+	sslRes, _ := u.scanRepo.GetScanResultsByAsset(ctx, assetID, model.ScanTypeSSL)
+	techRes, _ := u.scanRepo.GetScanResultsByAsset(ctx, assetID, model.ScanTypeTech)
 
 	results := map[string]interface{}{
 		"dns_records": dnsRecs,
@@ -235,22 +241,22 @@ func (u *scanUsecase) GetAssetAllResults(ctx context.Context, assetID string) (m
 	}
 
 	if len(ipRes) > 0 {
-		var r domain.IPScanResult
+		var r model.IPScanResult
 		json.Unmarshal(ipRes[0].Data, &r)
 		results["ip"] = r
 	}
 	if len(portRes) > 0 {
-		var r domain.PortScanResult
+		var r model.PortScanResult
 		json.Unmarshal(portRes[0].Data, &r)
 		results["port"] = r
 	}
 	if len(sslRes) > 0 {
-		var r domain.SSLScanResult
+		var r model.SSLScanResult
 		json.Unmarshal(sslRes[0].Data, &r)
 		results["ssl"] = r
 	}
 	if len(techRes) > 0 {
-		var r domain.TechScanResult
+		var r model.TechScanResult
 		json.Unmarshal(techRes[0].Data, &r)
 		results["tech"] = r
 	}
@@ -258,42 +264,42 @@ func (u *scanUsecase) GetAssetAllResults(ctx context.Context, assetID string) (m
 	return results, nil
 }
 
-func (u *scanUsecase) GetAssetDNSRecords(ctx context.Context, assetID string) ([]*domain.DNSRecord, error) {
+func (u *scanService) GetAssetDNSRecords(ctx context.Context, assetID string) ([]*model.DNSRecord, error) {
 	return u.scanRepo.GetDNSRecordsByAsset(ctx, assetID)
 }
 
-func (u *scanUsecase) GetAssetWHOIS(ctx context.Context, assetID string) (*domain.WHOISRecord, error) {
+func (u *scanService) GetAssetWHOIS(ctx context.Context, assetID string) (*model.WHOISRecord, error) {
 	return u.scanRepo.GetWHOISRecordByAsset(ctx, assetID)
 }
 
-func (u *scanUsecase) GetAssetSubdomains(ctx context.Context, assetID string) ([]*domain.Subdomain, error) {
+func (u *scanService) GetAssetSubdomains(ctx context.Context, assetID string) ([]*model.Subdomain, error) {
 	return u.scanRepo.GetSubdomainsByAsset(ctx, assetID)
 }
 
-func (u *scanUsecase) runBackgroundScan(asset *domain.Asset, job *domain.ScanJob) {
+func (u *scanService) runBackgroundScan(asset *model.Asset, job *model.ScanJob) {
 	ctx := context.Background()
-	job.Status = domain.ScanStatusRunning
+	job.Status = model.ScanStatusRunning
 	_ = u.scanRepo.UpdateScanJob(ctx, job)
 
 	var err error
 	var count int
 
 	switch job.ScanType {
-	case domain.ScanTypeDNS:
+	case model.ScanTypeDNS:
 		count, err = u.performDNSScan(ctx, asset, job.ID)
-	case domain.ScanTypeWHOIS:
+	case model.ScanTypeWHOIS:
 		count, err = u.performWHOISScan(ctx, asset, job.ID)
-	case domain.ScanTypeSubdomain:
+	case model.ScanTypeSubdomain:
 		count, err = u.performSubdomainScan(ctx, asset, job.ID)
-	case domain.ScanTypeIP:
+	case model.ScanTypeIP:
 		count, err = u.performIPScan(ctx, asset, job.ID)
-	case domain.ScanTypePort:
+	case model.ScanTypePort:
 		count, err = u.performPortScan(ctx, asset, job.ID)
-	case domain.ScanTypeSSL:
+	case model.ScanTypeSSL:
 		count, err = u.performSSLScan(ctx, asset, job.ID)
-	case domain.ScanTypeTech:
+	case model.ScanTypeTech:
 		count, err = u.performTechScan(ctx, asset, job.ID)
-	case domain.ScanTypeAll:
+	case model.ScanTypeAll:
 		count, err = u.performAllScan(ctx, asset, job.ID)
 	default:
 		err = errors.New("unsupported scan type")
@@ -304,21 +310,95 @@ func (u *scanUsecase) runBackgroundScan(asset *domain.Asset, job *domain.ScanJob
 	job.Results = count
 
 	if err != nil {
-		// If some parts completed, we can assign domain.ScanStatusPartial
+		// If some parts completed, we can assign model.ScanStatusPartial
 		if count > 0 {
-			job.Status = domain.ScanStatusPartial
+			job.Status = model.ScanStatusPartial
 		} else {
-			job.Status = domain.ScanStatusFailed
+			job.Status = model.ScanStatusFailed
 		}
 		job.Error = err.Error()
 	} else {
-		job.Status = domain.ScanStatusCompleted
+		job.Status = model.ScanStatusCompleted
 	}
 
 	_ = u.scanRepo.UpdateScanJob(ctx, job)
+
+	if job.Status == model.ScanStatusCompleted || job.Status == model.ScanStatusPartial {
+		u.compareAndAlert(ctx, asset.ID, job)
+	}
 }
 
-func (u *scanUsecase) performDNSScan(ctx context.Context, asset *domain.Asset, jobID string) (int, error) {
+func (u *scanService) compareAndAlert(ctx context.Context, assetID string, latestJob *model.ScanJob) {
+	// Simple comparison logic
+	// Find the previous completed scan job for this asset
+	jobs, err := u.scanRepo.ListScanJobsByAsset(ctx, assetID)
+	if err != nil || len(jobs) < 2 {
+		return
+	}
+
+	var prevJob *model.ScanJob
+	for _, j := range jobs {
+		if j.ID != latestJob.ID && (j.Status == model.ScanStatusCompleted || j.Status == model.ScanStatusPartial) {
+			prevJob = j
+			break
+		}
+	}
+
+	if prevJob == nil {
+		return
+	}
+
+	// Compare Open Ports
+	if latestJob.ScanType == model.ScanTypePort || latestJob.ScanType == model.ScanTypeAll {
+		u.comparePorts(ctx, assetID, prevJob.ID, latestJob.ID)
+	}
+}
+
+func (u *scanService) comparePorts(ctx context.Context, assetID, prevJobID, latestJobID string) {
+	prevRes, err := u.scanRepo.GetScanResultsByScan(ctx, prevJobID)
+	if err != nil {
+		return
+	}
+	latestRes, err := u.scanRepo.GetScanResultsByScan(ctx, latestJobID)
+	if err != nil {
+		return
+	}
+
+	var prevPorts model.PortScanResult
+	var latestPorts model.PortScanResult
+
+	for _, pr := range prevRes {
+		if pr.ScanType == model.ScanTypePort {
+			json.Unmarshal(pr.Data, &prevPorts)
+		}
+	}
+	for _, lr := range latestRes {
+		if lr.ScanType == model.ScanTypePort {
+			json.Unmarshal(lr.Data, &latestPorts)
+		}
+	}
+
+	prevMap := make(map[int]bool)
+	for _, p := range prevPorts.OpenPorts {
+		prevMap[p.Port] = true
+	}
+
+	for _, p := range latestPorts.OpenPorts {
+		if !prevMap[p.Port] {
+			msg := fmt.Sprintf("⚠️ New Open Port Detected: %d/%s (%s)", p.Port, p.Protocol, p.Service)
+			_ = u.alertRepo.Create(ctx, &model.Alert{
+				ID:        uuid.New().String(),
+				AssetID:   assetID,
+				Type:      "port",
+				Message:   msg,
+				IsRead:    false,
+				CreatedAt: time.Now(),
+			})
+		}
+	}
+}
+
+func (u *scanService) performDNSScan(ctx context.Context, asset *model.Asset, jobID string) (int, error) {
 	recs, err := u.dnsScanner.Scan(asset)
 	if err != nil {
 		return 0, err
@@ -335,7 +415,7 @@ func (u *scanUsecase) performDNSScan(ctx context.Context, asset *domain.Asset, j
 	return len(recs), nil
 }
 
-func (u *scanUsecase) performWHOISScan(ctx context.Context, asset *domain.Asset, jobID string) (int, error) {
+func (u *scanService) performWHOISScan(ctx context.Context, asset *model.Asset, jobID string) (int, error) {
 	whois, err := u.whoisScanner.Scan(asset)
 	if err != nil {
 		return 0, err
@@ -354,7 +434,7 @@ func (u *scanUsecase) performWHOISScan(ctx context.Context, asset *domain.Asset,
 	return 1, nil
 }
 
-func (u *scanUsecase) performSubdomainScan(ctx context.Context, asset *domain.Asset, jobID string) (int, error) {
+func (u *scanService) performSubdomainScan(ctx context.Context, asset *model.Asset, jobID string) (int, error) {
 	subCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
@@ -374,7 +454,7 @@ func (u *scanUsecase) performSubdomainScan(ctx context.Context, asset *domain.As
 	return len(subs), nil
 }
 
-func (u *scanUsecase) performIPScan(ctx context.Context, asset *domain.Asset, jobID string) (int, error) {
+func (u *scanService) performIPScan(ctx context.Context, asset *model.Asset, jobID string) (int, error) {
 	res, err := u.ipScanner.Scan(asset)
 	if err != nil {
 		return 0, err
@@ -385,11 +465,11 @@ func (u *scanUsecase) performIPScan(ctx context.Context, asset *domain.Asset, jo
 		return 0, err
 	}
 
-	dbRes := &domain.ScanResult{
+	dbRes := &model.ScanResult{
 		ID:        uuid.New().String(),
 		ScanJobID: jobID,
 		AssetID:   asset.ID,
-		ScanType:  domain.ScanTypeIP,
+		ScanType:  model.ScanTypeIP,
 		Data:      json.RawMessage(jsonBytes),
 		CreatedAt: time.Now(),
 	}
@@ -402,7 +482,7 @@ func (u *scanUsecase) performIPScan(ctx context.Context, asset *domain.Asset, jo
 	return 1, nil
 }
 
-func (u *scanUsecase) performPortScan(ctx context.Context, asset *domain.Asset, jobID string) (int, error) {
+func (u *scanService) performPortScan(ctx context.Context, asset *model.Asset, jobID string) (int, error) {
 	res, err := u.portScanner.Scan(asset)
 	if err != nil {
 		return 0, err
@@ -413,11 +493,11 @@ func (u *scanUsecase) performPortScan(ctx context.Context, asset *domain.Asset, 
 		return 0, err
 	}
 
-	dbRes := &domain.ScanResult{
+	dbRes := &model.ScanResult{
 		ID:        uuid.New().String(),
 		ScanJobID: jobID,
 		AssetID:   asset.ID,
-		ScanType:  domain.ScanTypePort,
+		ScanType:  model.ScanTypePort,
 		Data:      json.RawMessage(jsonBytes),
 		CreatedAt: time.Now(),
 	}
@@ -430,7 +510,7 @@ func (u *scanUsecase) performPortScan(ctx context.Context, asset *domain.Asset, 
 	return len(res.OpenPorts), nil
 }
 
-func (u *scanUsecase) performSSLScan(ctx context.Context, asset *domain.Asset, jobID string) (int, error) {
+func (u *scanService) performSSLScan(ctx context.Context, asset *model.Asset, jobID string) (int, error) {
 	res, err := u.sslScanner.Scan(asset)
 	if err != nil {
 		return 0, err
@@ -441,11 +521,11 @@ func (u *scanUsecase) performSSLScan(ctx context.Context, asset *domain.Asset, j
 		return 0, err
 	}
 
-	dbRes := &domain.ScanResult{
+	dbRes := &model.ScanResult{
 		ID:        uuid.New().String(),
 		ScanJobID: jobID,
 		AssetID:   asset.ID,
-		ScanType:  domain.ScanTypeSSL,
+		ScanType:  model.ScanTypeSSL,
 		Data:      json.RawMessage(jsonBytes),
 		CreatedAt: time.Now(),
 	}
@@ -458,7 +538,7 @@ func (u *scanUsecase) performSSLScan(ctx context.Context, asset *domain.Asset, j
 	return 1, nil
 }
 
-func (u *scanUsecase) performTechScan(ctx context.Context, asset *domain.Asset, jobID string) (int, error) {
+func (u *scanService) performTechScan(ctx context.Context, asset *model.Asset, jobID string) (int, error) {
 	res, err := u.techScanner.Scan(asset)
 	if err != nil {
 		return 0, err
@@ -469,11 +549,11 @@ func (u *scanUsecase) performTechScan(ctx context.Context, asset *domain.Asset, 
 		return 0, err
 	}
 
-	dbRes := &domain.ScanResult{
+	dbRes := &model.ScanResult{
 		ID:        uuid.New().String(),
 		ScanJobID: jobID,
 		AssetID:   asset.ID,
-		ScanType:  domain.ScanTypeTech,
+		ScanType:  model.ScanTypeTech,
 		Data:      json.RawMessage(jsonBytes),
 		CreatedAt: time.Now(),
 	}
@@ -486,7 +566,7 @@ func (u *scanUsecase) performTechScan(ctx context.Context, asset *domain.Asset, 
 	return len(res.Technologies), nil
 }
 
-func (u *scanUsecase) performAllScan(ctx context.Context, asset *domain.Asset, jobID string) (int, error) {
+func (u *scanService) performAllScan(ctx context.Context, asset *model.Asset, jobID string) (int, error) {
 	totalCount := 0
 	var errs []string
 
@@ -550,4 +630,4 @@ func (u *scanUsecase) performAllScan(ctx context.Context, asset *domain.Asset, j
 }
 
 // Make sure it implements interface
-var _ domain.ScanUsecase = (*scanUsecase)(nil)
+var _ model.ScanService = (*scanService)(nil)

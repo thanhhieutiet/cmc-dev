@@ -164,7 +164,9 @@ go test -v ./...
 ```
 Tất cả các ca kiểm thử liên quan đến Model Validation và Scanner Engine (tra cứu, phân tích, trích xuất version) đều vượt qua thành công:
 ```
-ok      homework-day1/internal/domain                  (cached)
-ok      homework-day1/internal/repository/memory        (cached)
-ok      homework-day1/internal/scanner                 7.868s
+ok      homework-day1/internal/handler                 0.626s
+ok      homework-day1/internal/model                   0.395s
+ok      homework-day1/internal/repository/memory       0.379s
+ok      homework-day1/internal/scanner                 8.328s
+ok      homework-day1/internal/service                 0.521s
 ```

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"homework-day1/internal/domain"
+	"homework-day1/internal/model"
 )
 
 type PostgresAssetRepo struct {
@@ -17,23 +17,23 @@ func NewPostgresAssetRepo(db *sql.DB) *PostgresAssetRepo {
 }
 
 // Create thêm một asset vào DB
-func (r *PostgresAssetRepo) Create(ctx context.Context, asset *domain.Asset) error {
-	query := `INSERT INTO assets (id, name, type, status, created_at, updated_at) 
-	          VALUES ($1, $2, $3, $4, $5, $6)`
-	_, err := r.db.ExecContext(ctx, query, asset.ID, asset.Name, asset.Type, asset.Status, asset.CreatedAt, asset.UpdatedAt)
+func (r *PostgresAssetRepo) Create(ctx context.Context, asset *model.Asset) error {
+	query := `INSERT INTO assets (id, name, type, status, tags, auto_scan, created_at, updated_at) 
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+	_, err := r.db.ExecContext(ctx, query, asset.ID, asset.Name, asset.Type, asset.Status, asset.Tags, asset.AutoScan, asset.CreatedAt, asset.UpdatedAt)
 	return err
 }
 
 // GetByID tìm asset theo ID
-func (r *PostgresAssetRepo) GetByID(ctx context.Context, id string) (*domain.Asset, error) {
-	query := `SELECT id, name, type, status, created_at, updated_at 
+func (r *PostgresAssetRepo) GetByID(ctx context.Context, id string) (*model.Asset, error) {
+	query := `SELECT id, name, type, status, tags, auto_scan, created_at, updated_at 
 	          FROM assets WHERE id = $1`
-	var asset domain.Asset
+	var asset model.Asset
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&asset.ID, &asset.Name, &asset.Type, &asset.Status, &asset.CreatedAt, &asset.UpdatedAt,
+		&asset.ID, &asset.Name, &asset.Type, &asset.Status, &asset.Tags, &asset.AutoScan, &asset.CreatedAt, &asset.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
-		return nil, domain.ErrAssetNotFound
+		return nil, model.ErrAssetNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -53,21 +53,21 @@ func (r *PostgresAssetRepo) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	if rows == 0 {
-		return domain.ErrAssetNotFound
+		return model.ErrAssetNotFound
 	}
 	return nil
 }
 
 // BatchCreate thêm nhiều assets cùng lúc
-func (r *PostgresAssetRepo) BatchCreate(ctx context.Context, assets []*domain.Asset) error {
+func (r *PostgresAssetRepo) BatchCreate(ctx context.Context, assets []*model.Asset) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	query := `INSERT INTO assets (id, name, type, status, created_at, updated_at) 
-	          VALUES ($1, $2, $3, $4, $5, $6)`
+	query := `INSERT INTO assets (id, name, type, status, tags, auto_scan, created_at, updated_at) 
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	stmt, err := tx.PrepareContext(ctx, query)
 	if err != nil {
 		return err
@@ -75,7 +75,7 @@ func (r *PostgresAssetRepo) BatchCreate(ctx context.Context, assets []*domain.As
 	defer stmt.Close()
 
 	for _, asset := range assets {
-		_, err := stmt.ExecContext(ctx, asset.ID, asset.Name, asset.Type, asset.Status, asset.CreatedAt, asset.UpdatedAt)
+		_, err := stmt.ExecContext(ctx, asset.ID, asset.Name, asset.Type, asset.Status, asset.Tags, asset.AutoScan, asset.CreatedAt, asset.UpdatedAt)
 		if err != nil {
 			return err
 		}
@@ -125,14 +125,14 @@ func (r *PostgresAssetRepo) BatchDelete(ctx context.Context, ids []string) (int,
 }
 
 // GetStats trả về thống kê tổng quan về các assets
-func (r *PostgresAssetRepo) GetStats(ctx context.Context) (*domain.StatsResponse, error) {
+func (r *PostgresAssetRepo) GetStats(ctx context.Context) (*model.StatsResponse, error) {
 	var total int
 	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM assets").Scan(&total)
 	if err != nil {
 		return nil, err
 	}
 
-	stats := &domain.StatsResponse{
+	stats := &model.StatsResponse{
 		Total:    total,
 		ByType:   make(map[string]int),
 		ByStatus: make(map[string]int),
@@ -192,13 +192,13 @@ func (r *PostgresAssetRepo) Count(ctx context.Context, assetType, status string)
 }
 
 // List trả về danh sách assets có phân trang và lọc
-func (r *PostgresAssetRepo) List(ctx context.Context, page, limit int, assetType, status string) ([]*domain.Asset, int, error) {
+func (r *PostgresAssetRepo) List(ctx context.Context, page, limit int, assetType, status string) ([]*model.Asset, int, error) {
 	total, err := r.Count(ctx, assetType, status)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	query := "SELECT id, name, type, status, created_at, updated_at FROM assets WHERE 1=1"
+	query := "SELECT id, name, type, status, tags, auto_scan, created_at, updated_at FROM assets WHERE 1=1"
 	var args []interface{}
 	placeholderIdx := 1
 
@@ -225,11 +225,11 @@ func (r *PostgresAssetRepo) List(ctx context.Context, page, limit int, assetType
 	}
 	defer rows.Close()
 
-	var assets []*domain.Asset
+	var assets []*model.Asset
 	for rows.Next() {
-		var asset domain.Asset
+		var asset model.Asset
 		err := rows.Scan(
-			&asset.ID, &asset.Name, &asset.Type, &asset.Status, &asset.CreatedAt, &asset.UpdatedAt,
+			&asset.ID, &asset.Name, &asset.Type, &asset.Status, &asset.Tags, &asset.AutoScan, &asset.CreatedAt, &asset.UpdatedAt,
 		)
 		if err != nil {
 			return nil, 0, err
@@ -241,19 +241,19 @@ func (r *PostgresAssetRepo) List(ctx context.Context, page, limit int, assetType
 }
 
 // Search tìm kiếm assets theo tên
-func (r *PostgresAssetRepo) Search(ctx context.Context, query string, maxResults int) ([]*domain.Asset, error) {
-	sqlQuery := "SELECT id, name, type, status, created_at, updated_at FROM assets WHERE name ILIKE $1 ORDER BY created_at DESC LIMIT $2"
+func (r *PostgresAssetRepo) Search(ctx context.Context, query string, maxResults int) ([]*model.Asset, error) {
+	sqlQuery := "SELECT id, name, type, status, tags, auto_scan, created_at, updated_at FROM assets WHERE name ILIKE $1 OR tags ILIKE $1 ORDER BY created_at DESC LIMIT $2"
 	rows, err := r.db.QueryContext(ctx, sqlQuery, "%"+query+"%", maxResults)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var assets []*domain.Asset
+	var assets []*model.Asset
 	for rows.Next() {
-		var asset domain.Asset
+		var asset model.Asset
 		err := rows.Scan(
-			&asset.ID, &asset.Name, &asset.Type, &asset.Status, &asset.CreatedAt, &asset.UpdatedAt,
+			&asset.ID, &asset.Name, &asset.Type, &asset.Status, &asset.Tags, &asset.AutoScan, &asset.CreatedAt, &asset.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -272,4 +272,47 @@ func (r *PostgresAssetRepo) TotalCount() int {
 		return 0
 	}
 	return count
+}
+
+// GetStorageType trả về loại storage là postgres (dùng cho Health Check)
+func (r *PostgresAssetRepo) GetStorageType() string {
+	return "postgres"
+}
+
+// UpdateAutoScan cập nhật trạng thái auto_scan của asset
+func (r *PostgresAssetRepo) UpdateAutoScan(ctx context.Context, id string, autoScan bool) error {
+	query := `UPDATE assets SET auto_scan = $1, updated_at = NOW() WHERE id = $2`
+	res, err := r.db.ExecContext(ctx, query, autoScan, id)
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return model.ErrAssetNotFound
+	}
+	return nil
+}
+
+// GetAutoScanAssets lấy danh sách các assets được cấu hình tự động quét và đang active
+func (r *PostgresAssetRepo) GetAutoScanAssets(ctx context.Context) ([]*model.Asset, error) {
+	query := `SELECT id, name, type, status, tags, auto_scan, created_at, updated_at 
+	          FROM assets WHERE status = 'active' AND auto_scan = true ORDER BY created_at ASC`
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var assets []*model.Asset
+	for rows.Next() {
+		var asset model.Asset
+		err := rows.Scan(
+			&asset.ID, &asset.Name, &asset.Type, &asset.Status, &asset.Tags, &asset.AutoScan, &asset.CreatedAt, &asset.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		assets = append(assets, &asset)
+	}
+	return assets, nil
 }

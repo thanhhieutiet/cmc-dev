@@ -1,4 +1,4 @@
-package domain
+package model
 
 import (
 	"context"
@@ -14,6 +14,8 @@ type Asset struct {
 	Name      string    `json:"name"`
 	Type      string    `json:"type"`       // domain, ip, service
 	Status    string    `json:"status"`     // active, inactive
+	Tags      string    `json:"tags"`       // comma-separated tags
+	AutoScan  bool      `json:"auto_scan"`  // whether to include in scheduled scans
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -62,8 +64,10 @@ func (a *Asset) Validate() error {
 // CreateAssetRequest là DTO cho việc tạo 1 asset
 type CreateAssetRequest struct {
 	Name   string `json:"name"`
-	Type   string `json:"type"`
-	Status string `json:"status,omitempty"`
+	Type     string `json:"type"`
+	Status   string `json:"status,omitempty"`
+	Tags     string `json:"tags,omitempty"`
+	AutoScan bool   `json:"auto_scan"`
 }
 
 // BatchCreateRequest là DTO cho Bài 2 - tạo nhiều assets
@@ -137,6 +141,10 @@ type AssetRepository interface {
 	BatchCreate(ctx context.Context, assets []*Asset) error
 	BatchDelete(ctx context.Context, ids []string) (deleted int, notFound int, err error)
 
+	// Auto-Scan Toggle
+	UpdateAutoScan(ctx context.Context, id string, autoScan bool) error
+	GetAutoScanAssets(ctx context.Context) ([]*Asset, error)
+
 	// Statistics & Counting
 	GetStats(ctx context.Context) (*StatsResponse, error)
 	Count(ctx context.Context, assetType, status string) (int, error)
@@ -149,8 +157,8 @@ type AssetRepository interface {
 	TotalCount() int
 }
 
-// AssetUsecase định nghĩa interface cho lớp logic nghiệp vụ
-type AssetUsecase interface {
+// AssetService định nghĩa interface cho lớp logic nghiệp vụ
+type AssetService interface {
 	// CRUD cơ bản
 	CreateAsset(ctx context.Context, req *CreateAssetRequest) (*Asset, error)
 	GetAssetByID(ctx context.Context, id string) (*Asset, error)
@@ -158,6 +166,9 @@ type AssetUsecase interface {
 	// Batch operations
 	BatchCreateAssets(ctx context.Context, req *BatchCreateRequest) (*BatchCreateResponse, error)
 	BatchDeleteAssets(ctx context.Context, ids []string) (*BatchDeleteResponse, error)
+
+	// Auto-Scan Toggle
+	ToggleAutoScan(ctx context.Context, id string, autoScan bool) error
 
 	// Statistics & Counting
 	GetStats(ctx context.Context) (*StatsResponse, error)

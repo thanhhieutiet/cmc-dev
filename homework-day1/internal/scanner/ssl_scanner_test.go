@@ -3,25 +3,25 @@ package scanner
 import (
 	"testing"
 
-	"homework-day1/internal/domain"
+	"homework-day1/internal/model"
 )
 
 func TestSSLScanner_Scan_Validation(t *testing.T) {
 	scanner := NewSSLScanner()
-	asset := &domain.Asset{
+	asset := &model.Asset{
 		Name: "127.0.0.1",
 		Type: "ip",
 	}
 
 	_, err := scanner.Scan(asset)
-	if err != domain.ErrScanNotSupported {
+	if err != model.ErrScanNotSupported {
 		t.Errorf("expected ErrScanNotSupported, got %v", err)
 	}
 }
 
 func TestSSLScanner_Scan_ConnectionError(t *testing.T) {
 	scanner := NewSSLScanner()
-	asset := &domain.Asset{
+	asset := &model.Asset{
 		Name: "invalid-domain-xyz123.com",
 		Type: "domain",
 	}

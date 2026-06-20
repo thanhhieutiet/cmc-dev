@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"homework-day1/internal/domain"
+	"homework-day1/internal/model"
 )
 
 type TechScanner struct {
@@ -23,9 +23,9 @@ func NewTechScanner() *TechScanner {
 	}
 }
 
-func (s *TechScanner) Scan(asset *domain.Asset) (*domain.TechScanResult, error) {
+func (s *TechScanner) Scan(asset *model.Asset) (*model.TechScanResult, error) {
 	if asset.Type != "domain" {
-		return nil, domain.ErrScanNotSupported
+		return nil, model.ErrScanNotSupported
 	}
 
 	domainName := asset.Name
@@ -68,21 +68,21 @@ func (s *TechScanner) Scan(asset *domain.Asset) (*domain.TechScanResult, error) 
 		}
 	}
 
-	var techs []domain.TechnologyInfo
+	var techs []model.TechnologyInfo
 
 	serverHeader := resp.Header.Get("Server")
 	if serverHeader != "" {
 		serverLower := strings.ToLower(serverHeader)
 		if strings.Contains(serverLower, "nginx") {
 			version := extractVersion(serverHeader, "nginx")
-			techs = append(techs, domain.TechnologyInfo{Name: "Nginx", Category: "Web Server", Version: version, Confidence: 100})
+			techs = append(techs, model.TechnologyInfo{Name: "Nginx", Category: "Web Server", Version: version, Confidence: 100})
 		} else if strings.Contains(serverLower, "apache") {
 			version := extractVersion(serverHeader, "apache")
-			techs = append(techs, domain.TechnologyInfo{Name: "Apache", Category: "Web Server", Version: version, Confidence: 100})
+			techs = append(techs, model.TechnologyInfo{Name: "Apache", Category: "Web Server", Version: version, Confidence: 100})
 		} else if strings.Contains(serverLower, "cloudflare") {
-			techs = append(techs, domain.TechnologyInfo{Name: "Cloudflare", Category: "CDN", Confidence: 100})
+			techs = append(techs, model.TechnologyInfo{Name: "Cloudflare", Category: "CDN", Confidence: 100})
 		} else {
-			techs = append(techs, domain.TechnologyInfo{Name: serverHeader, Category: "Web Server", Confidence: 80})
+			techs = append(techs, model.TechnologyInfo{Name: serverHeader, Category: "Web Server", Confidence: 80})
 		}
 	}
 
@@ -91,43 +91,43 @@ func (s *TechScanner) Scan(asset *domain.Asset) (*domain.TechScanResult, error) 
 		pbLower := strings.ToLower(poweredBy)
 		if strings.Contains(pbLower, "php") {
 			version := extractVersion(poweredBy, "php")
-			techs = append(techs, domain.TechnologyInfo{Name: "PHP", Category: "Programming Language", Version: version, Confidence: 100})
+			techs = append(techs, model.TechnologyInfo{Name: "PHP", Category: "Programming Language", Version: version, Confidence: 100})
 		} else if strings.Contains(pbLower, "express") {
-			techs = append(techs, domain.TechnologyInfo{Name: "Express", Category: "Web Framework", Confidence: 90})
+			techs = append(techs, model.TechnologyInfo{Name: "Express", Category: "Web Framework", Confidence: 90})
 		} else if strings.Contains(pbLower, "asp.net") {
-			techs = append(techs, domain.TechnologyInfo{Name: "ASP.NET", Category: "Web Framework", Confidence: 100})
+			techs = append(techs, model.TechnologyInfo{Name: "ASP.NET", Category: "Web Framework", Confidence: 100})
 		} else {
-			techs = append(techs, domain.TechnologyInfo{Name: poweredBy, Category: "Backend Tech", Confidence: 80})
+			techs = append(techs, model.TechnologyInfo{Name: poweredBy, Category: "Backend Tech", Confidence: 80})
 		}
 	}
 
 	if generator, ok := metaTags["generator"]; ok && strings.Contains(strings.ToLower(generator), "wordpress") {
 		version := extractVersion(generator, "wordpress")
-		techs = append(techs, domain.TechnologyInfo{Name: "WordPress", Category: "CMS", Version: version, Confidence: 100})
+		techs = append(techs, model.TechnologyInfo{Name: "WordPress", Category: "CMS", Version: version, Confidence: 100})
 	} else if strings.Contains(htmlBody, "/wp-content/") || strings.Contains(htmlBody, "/wp-includes/") {
-		techs = append(techs, domain.TechnologyInfo{Name: "WordPress", Category: "CMS", Confidence: 90})
+		techs = append(techs, model.TechnologyInfo{Name: "WordPress", Category: "CMS", Confidence: 90})
 	}
 
 	if strings.Contains(htmlBody, "react") || strings.Contains(htmlBody, "_react") {
-		techs = append(techs, domain.TechnologyInfo{Name: "React", Category: "Frontend Library", Confidence: 70})
+		techs = append(techs, model.TechnologyInfo{Name: "React", Category: "Frontend Library", Confidence: 70})
 	}
 	if strings.Contains(htmlBody, "vue") || strings.Contains(htmlBody, "v-") {
-		techs = append(techs, domain.TechnologyInfo{Name: "Vue.js", Category: "Frontend Library", Confidence: 70})
+		techs = append(techs, model.TechnologyInfo{Name: "Vue.js", Category: "Frontend Library", Confidence: 70})
 	}
 	if strings.Contains(htmlBody, "angular") || strings.Contains(htmlBody, "ng-app") {
-		techs = append(techs, domain.TechnologyInfo{Name: "Angular", Category: "Frontend Framework", Confidence: 80})
+		techs = append(techs, model.TechnologyInfo{Name: "Angular", Category: "Frontend Framework", Confidence: 80})
 	}
 	if strings.Contains(htmlBody, "jquery") || strings.Contains(htmlBody, "jQuery") {
-		techs = append(techs, domain.TechnologyInfo{Name: "jQuery", Category: "Frontend Library", Confidence: 80})
+		techs = append(techs, model.TechnologyInfo{Name: "jQuery", Category: "Frontend Library", Confidence: 80})
 	}
 	if strings.Contains(htmlBody, "bootstrap") {
-		techs = append(techs, domain.TechnologyInfo{Name: "Bootstrap", Category: "CSS Framework", Confidence: 80})
+		techs = append(techs, model.TechnologyInfo{Name: "Bootstrap", Category: "CSS Framework", Confidence: 80})
 	}
 	if strings.Contains(htmlBody, "font-awesome") || strings.Contains(htmlBody, "fontawesome") {
-		techs = append(techs, domain.TechnologyInfo{Name: "FontAwesome", Category: "Icon Font", Confidence: 90})
+		techs = append(techs, model.TechnologyInfo{Name: "FontAwesome", Category: "Icon Font", Confidence: 90})
 	}
 
-	return &domain.TechScanResult{
+	return &model.TechScanResult{
 		Domain:       domainName,
 		Technologies: techs,
 		Headers:      headersMap,

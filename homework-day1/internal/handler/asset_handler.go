@@ -1,4 +1,4 @@
-package http
+package handler
 
 import (
 	"encoding/json"
@@ -9,16 +9,16 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"homework-day1/internal/domain"
+	"homework-day1/internal/model"
 )
 
 // AssetHandler chứa các HTTP handler cho asset endpoints
 type AssetHandler struct {
-	usecase domain.AssetUsecase
+	usecase model.AssetService
 }
 
 // NewAssetHandler tạo một instance mới của AssetHandler
-func NewAssetHandler(uc domain.AssetUsecase) *AssetHandler {
+func NewAssetHandler(uc model.AssetService) *AssetHandler {
 	return &AssetHandler{usecase: uc}
 }
 
@@ -36,7 +36,7 @@ func respondError(w http.ResponseWriter, status int, message string) {
 
 // CreateAsset xử lý POST /assets - tạo 1 asset
 func (h *AssetHandler) CreateAsset(w http.ResponseWriter, r *http.Request) {
-	var req domain.CreateAssetRequest
+	var req model.CreateAssetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
 		return
@@ -44,9 +44,9 @@ func (h *AssetHandler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 
 	asset, err := h.usecase.CreateAsset(r.Context(), &req)
 	if err != nil {
-		if errors.Is(err, domain.ErrInvalidAssetType) ||
-			errors.Is(err, domain.ErrInvalidName) ||
-			errors.Is(err, domain.ErrInvalidAssetStatus) {
+		if errors.Is(err, model.ErrInvalidAssetType) ||
+			errors.Is(err, model.ErrInvalidName) ||
+			errors.Is(err, model.ErrInvalidAssetStatus) {
 			respondError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -63,7 +63,7 @@ func (h *AssetHandler) GetAssetByID(w http.ResponseWriter, r *http.Request) {
 
 	asset, err := h.usecase.GetAssetByID(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, domain.ErrAssetNotFound) {
+		if errors.Is(err, model.ErrAssetNotFound) {
 			respondError(w, http.StatusNotFound, err.Error())
 			return
 		}
@@ -76,7 +76,7 @@ func (h *AssetHandler) GetAssetByID(w http.ResponseWriter, r *http.Request) {
 
 // BatchCreate xử lý POST /assets/batch - tạo nhiều assets (Bài 2)
 func (h *AssetHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
-	var req domain.BatchCreateRequest
+	var req model.BatchCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
 		return
@@ -84,10 +84,10 @@ func (h *AssetHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.usecase.BatchCreateAssets(r.Context(), &req)
 	if err != nil {
-		if errors.Is(err, domain.ErrInvalidAssetType) ||
-			errors.Is(err, domain.ErrInvalidName) ||
-			errors.Is(err, domain.ErrInvalidAssetStatus) ||
-			errors.Is(err, domain.ErrBatchLimitExceeded) {
+		if errors.Is(err, model.ErrInvalidAssetType) ||
+			errors.Is(err, model.ErrInvalidName) ||
+			errors.Is(err, model.ErrInvalidAssetStatus) ||
+			errors.Is(err, model.ErrBatchLimitExceeded) {
 			respondError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -102,7 +102,7 @@ func (h *AssetHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 func (h *AssetHandler) BatchDelete(w http.ResponseWriter, r *http.Request) {
 	idsParam := r.URL.Query().Get("ids")
 	if idsParam == "" {
-		respondError(w, http.StatusBadRequest, domain.ErrIDsRequired.Error())
+		respondError(w, http.StatusBadRequest, model.ErrIDsRequired.Error())
 		return
 	}
 
@@ -117,7 +117,7 @@ func (h *AssetHandler) BatchDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(cleanIDs) == 0 {
-		respondError(w, http.StatusBadRequest, domain.ErrIDsRequired.Error())
+		respondError(w, http.StatusBadRequest, model.ErrIDsRequired.Error())
 		return
 	}
 
@@ -175,7 +175,7 @@ func (h *AssetHandler) ListAssets(w http.ResponseWriter, r *http.Request) {
 func (h *AssetHandler) SearchAssets(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	if query == "" {
-		respondError(w, http.StatusBadRequest, domain.ErrSearchQueryRequired.Error())
+		respondError(w, http.StatusBadRequest, model.ErrSearchQueryRequired.Error())
 		return
 	}
 
@@ -186,4 +186,31 @@ func (h *AssetHandler) SearchAssets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, results)
+}
+
+func (h *AssetHandler) ToggleAutoScan(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		respondError(w, http.StatusBadRequest, "missing asset id")
+		return
+	}
+
+	var req struct {
+		AutoScan bool `json:"auto_scan"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if err := h.usecase.ToggleAutoScan(r.Context(), id, req.AutoScan); err != nil {
+		if err == model.ErrAssetNotFound {
+			respondError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

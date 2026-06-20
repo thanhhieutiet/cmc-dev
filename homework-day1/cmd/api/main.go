@@ -14,9 +14,10 @@ import (
 	_ "github.com/lib/pq"
 
 	"homework-day1/internal/config"
-	deliveryHttp "homework-day1/internal/delivery/http"
+	"homework-day1/internal/handler"
 	"homework-day1/internal/repository/postgres"
-	"homework-day1/internal/usecase"
+	"homework-day1/internal/scheduler"
+	"homework-day1/internal/service"
 )
 
 func main() {
@@ -59,18 +60,24 @@ func main() {
 	// Repositories
 	assetRepo := postgres.NewPostgresAssetRepo(db)
 	scanRepo := postgres.NewPostgresScanRepo(db)
+	alertRepo := postgres.NewPostgresAlertRepo(db)
 
 	// Usecases
-	assetUsecase := usecase.NewAssetUsecase(assetRepo)
-	scanUsecase := usecase.NewScanUsecase(assetRepo, scanRepo)
+	assetService := service.NewAssetService(assetRepo)
+	scanService := service.NewScanService(assetRepo, scanRepo, alertRepo)
 
 	// Handlers
-	assetHandler := deliveryHttp.NewAssetHandler(assetUsecase)
-	scanHandler := deliveryHttp.NewScanHandler(scanUsecase)
-	healthHandler := deliveryHttp.NewHealthHandler(assetUsecase, startTime)
+	assetHandler := handler.NewAssetHandler(assetService)
+	scanHandler := handler.NewScanHandler(scanService)
+	healthHandler := handler.NewHealthHandler(assetService, startTime)
+	alertHandler := handler.NewAlertHandler(alertRepo)
 
 	// Router
-	router := deliveryHttp.NewRouter(assetHandler, scanHandler, healthHandler)
+	router := handler.NewRouter(assetHandler, scanHandler, healthHandler, alertHandler)
+
+	// Scheduler
+	sched := scheduler.NewScheduler(assetRepo, scanService, 1*time.Minute)
+	sched.Start()
 
 	// Start server
 	port := ":" + cfg.Server.Port
@@ -110,13 +117,13 @@ func main() {
 }
 
 func runMigrations(db *sql.DB, migrationsDir string) error {
-	// Create schema_migrations table if not exists
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+	// Create app_schema_migrations table if not exists
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS app_schema_migrations (
 		version VARCHAR(255) PRIMARY KEY,
 		applied_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 	)`)
 	if err != nil {
-		return fmt.Errorf("failed to create schema_migrations table: %w", err)
+		return fmt.Errorf("failed to create app_schema_migrations table: %w", err)
 	}
 
 	// Read migration files
@@ -135,7 +142,7 @@ func runMigrations(db *sql.DB, migrationsDir string) error {
 
 	for _, filename := range upMigrationFiles {
 		var exists bool
-		err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = $1)", filename).Scan(&exists)
+		err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM app_schema_migrations WHERE version = $1)", filename).Scan(&exists)
 		if err != nil {
 			return fmt.Errorf("failed to check migration status: %w", err)
 		}
@@ -161,7 +168,7 @@ func runMigrations(db *sql.DB, migrationsDir string) error {
 			return fmt.Errorf("failed to execute migration SQL: %w", err)
 		}
 
-		_, err = tx.Exec("INSERT INTO schema_migrations (version) VALUES ($1)", filename)
+		_, err = tx.Exec("INSERT INTO app_schema_migrations (version) VALUES ($1)", filename)
 		if err != nil {
 			tx.Rollback()
 			return fmt.Errorf("failed to log migration: %w", err)
