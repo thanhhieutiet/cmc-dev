@@ -5,7 +5,7 @@ import StatusBadge from './ui/StatusBadge';
 import AssetIcon from './ui/AssetIcon';
 import { exportToPDF } from '../utils/pdfExport/index';
 
-const API_BASE = 'http://localhost:8080';
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8080' : '';
 
 export default function ScanHistory({ onViewResults }) {
   const [jobs, setJobs] = useState([]);
