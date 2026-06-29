@@ -1,0 +1,10 @@
+frontend/
+*.exe
+*.test
+coverage
+.env.local
+.git
+.gitignore
+README.md
+SUBMISSION.md
+implementation_plan.md
